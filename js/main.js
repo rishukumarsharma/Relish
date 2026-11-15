@@ -42,7 +42,7 @@ const CLINIC = {
   }
 
   // Scroll reveal (CSS only hides these when JS is running, so no-JS visitors see everything)
-  const revealEls = $$(".section-head,.card,.pr,.quote,.steps li,.gallery figure,.banner,.faq details,.split>*,.trust__item,.contact-info,.form,.callout,.pr-note,.cta .container");
+  const revealEls = $$(".section-head,.card,.pr,.quote,.steps li,.gallery figure,.banner,.faq details,.split>*,.contact-info,.form,.callout,.pr-note,.cta .container");
   if ("IntersectionObserver" in window) {
     const io = new IntersectionObserver(entries => entries.forEach(en => {
       if (!en.isIntersecting) return;
