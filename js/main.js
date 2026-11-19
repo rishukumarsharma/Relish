@@ -62,7 +62,7 @@ const CLINIC = {
   const rules = {
     name: v => v.trim().length >= 2 || "Please enter your name.",
     phone: v => (/^\+?[\d\s\-()]{10,16}$/.test(v.trim()) && v.replace(/\D/g, "").length >= 10) || "Please enter a valid phone number (at least 10 digits).",
-    email: v => !v.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim()) || "Please enter a valid email address."
+    email: v => !v.trim() || /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)*\.[^\s@.]{2,}$/.test(v.trim()) || "Please enter a valid email address."
   };
 
   const initForm = form => {
@@ -109,7 +109,7 @@ const CLINIC = {
         if (!res.ok) throw new Error(res.status);
         if (isGoogle) { const out = await res.json(); if (!out.ok) throw new Error("script error"); }
         form.reset(); show("ok", "Thank you! Your request has been sent. We will contact you soon.");
-      } catch (_) {
+      } catch (_) { // any failure (network, HTTP error, script error) gets the same visitor-facing message
         show("err", "Sorry, something went wrong. Please try again or call us.");
       } finally { btn.disabled = false; btn.textContent = label; }
     });
