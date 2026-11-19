@@ -1,11 +1,10 @@
 /* ===== Single edit point for clinic details (edit here) ===== */
 const CLINIC = {
   name: "Relish Skin & Laser Clinic",
-  phone: "+91 81470 89556",
-  whatsapp: "918147089556",
+  phone: "+91 97406 93485",
+  whatsapp: "919740693485",
   email: "relish842@gmail.com",
   address: "1st Floor, No. 7 & 8, Muthanallur Cross, Sarjapur - Marathahalli Road, Dommasandra, Bengaluru, Karnataka 562125",
-  hours: "Monday to Sunday, 9:00 AM to 8:00 PM",
   formEndpoint: "https://script.google.com/macros/s/AKfycbwzGZIQmxytI5NG9McwcjljQ2Fp_0n3X8d9yHZSmXFLh0Ygcuj5ya1ozHOOT0tDgJHQ/exec", // Google Apps Script web app URL (ends with /exec)
 };
 
@@ -14,7 +13,7 @@ const CLINIC = {
   const $ = (s, c = document) => c.querySelector(s);
   const $$ = (s, c = document) => [...c.querySelectorAll(s)];
 
-  // Fill contact placeholders: [data-clinic="phone|email|address|hours"], [data-clinic-link="tel|mailto|wa"]
+  // Fill contact placeholders: [data-clinic="phone|email|address"], [data-clinic-link="tel|mailto|wa"]
   $$("[data-clinic]").forEach(el => { el.textContent = CLINIC[el.dataset.clinic] || ""; });
   $$("[data-clinic-link]").forEach(el => {
     const t = el.dataset.clinicLink;
@@ -42,7 +41,7 @@ const CLINIC = {
   }
 
   // Scroll reveal (CSS only hides these when JS is running, so no-JS visitors see everything)
-  const revealEls = $$(".section-head,.card,.pr,.quote,.steps li,.gallery figure,.banner,.faq details,.split>*,.contact-info,.form,.callout,.pr-note,.cta .container");
+  const revealEls = $$(".section-head,.card,.pr,.steps li,.banner,.faq details,.split>*,.contact-info,.form:not(.modal__form),.callout,.pr-note,.cta .container");
   if ("IntersectionObserver" in window) {
     const io = new IntersectionObserver(entries => entries.forEach(en => {
       if (!en.isIntersecting) return;
@@ -59,15 +58,15 @@ const CLINIC = {
     });
   }
 
-  // Contact form: validation, honeypot, fetch submit (Formspree / Web3Forms via CLINIC.formEndpoint)
-  const form = $("#contact-form");
-  if (form) {
-    const status = $("#form-status"), btn = $("button[type=submit]", form);
-    const rules = {
-      name: v => v.trim().length >= 2 || "Please enter your name.",
-      phone: v => (/^\+?[\d\s\-()]{10,16}$/.test(v.trim()) && v.replace(/\D/g, "").length >= 10) || "Please enter a valid phone number (at least 10 digits).",
-      email: v => !v.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim()) || "Please enter a valid email address."
-    };
+  // Lead forms (contact page form and the pop-up): validation, honeypot, submit to CLINIC.formEndpoint
+  const rules = {
+    name: v => v.trim().length >= 2 || "Please enter your name.",
+    phone: v => (/^\+?[\d\s\-()]{10,16}$/.test(v.trim()) && v.replace(/\D/g, "").length >= 10) || "Please enter a valid phone number (at least 10 digits).",
+    email: v => !v.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim()) || "Please enter a valid email address."
+  };
+
+  const initForm = form => {
+    const status = $(".form-status", form), btn = $("button[type=submit]", form);
     const check = input => {
       const rule = rules[input.name]; if (!rule) return true;
       const r = rule(input.value), field = input.closest(".field"), err = $(".error", field);
@@ -87,14 +86,14 @@ const CLINIC = {
 
     // Preselect service from ?service=
     const wanted = new URLSearchParams(location.search).get("service");
-    if (wanted && [...form.service.options].some(o => o.value === wanted)) form.service.value = wanted;
+    if (wanted && form.elements.service && [...form.elements.service.options].some(o => o.value === wanted)) form.elements.service.value = wanted;
 
     form.addEventListener("submit", async e => {
       e.preventDefault();
       if (btn.disabled) return;
-      const results = ["name", "phone", "email"].map(n => check(form.elements[n]));
+      const results = ["name", "phone", "email"].filter(n => form.elements[n]).map(n => check(form.elements[n]));
       if (results.includes(false)) { form.querySelector(".invalid input").focus(); show("err", "Please fix the highlighted fields."); return; }
-      if (form.website.value) { show("ok", "Thank you! We will contact you soon."); form.reset(); return; } // honeypot: bots see success
+      if (form.elements.website.value) { show("ok", "Thank you! We will contact you soon."); form.reset(); return; } // honeypot: bots see success
       if (!CLINIC.formEndpoint) { show("err", "Online booking is not available right now. Please call or WhatsApp us."); return; }
       const label = btn.textContent;
       btn.disabled = true; btn.textContent = "Sending…"; show("", "");
@@ -114,5 +113,25 @@ const CLINIC = {
         show("err", "Sorry, something went wrong. Please try again or call us.");
       } finally { btn.disabled = false; btn.textContent = label; }
     });
+  };
+  $$("form[data-lead]").forEach(initForm);
+
+  // Optional pop-up enquiry form: opens once per visit after a short delay, can always be closed
+  const modal = $("#enquiry");
+  if (modal && typeof modal.showModal === "function") {
+    const KEY = "relish-enquiry-shown";
+    const seen = () => { try { return sessionStorage.getItem(KEY); } catch (_) { return null; } };
+    const mark = () => { try { sessionStorage.setItem(KEY, "1"); } catch (_) { /* storage blocked: pop-up may show again */ } };
+    const open = () => {
+      if (modal.open || nav?.classList.contains("is-open")) return;
+      modal.showModal();
+      modal.focus(); // focus the dialog itself so no ring shows on the close button; Tab reaches it next
+      document.body.classList.toggle("no-scroll", true);
+      mark();
+    };
+    modal.addEventListener("close", () => document.body.classList.toggle("no-scroll", false));
+    $$("[data-modal-close]", modal).forEach(b => b.addEventListener("click", () => modal.close()));
+    modal.addEventListener("click", e => { if (e.target === modal) modal.close(); }); // click on the dimmed backdrop
+    if (!seen()) setTimeout(open, 8000);
   }
 })();
