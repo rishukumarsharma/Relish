@@ -109,6 +109,7 @@ const CLINIC = {
         if (!res.ok) throw new Error(res.status);
         if (isGoogle) { const out = await res.json(); if (!out.ok) throw new Error("script error"); }
         form.reset(); show("ok", "Thank you! Your request has been sent. We will contact you soon.");
+        form.dispatchEvent(new Event("lead:sent"));
       } catch (_) { // any failure (network, HTTP error, script error) gets the same visitor-facing message
         show("err", "Sorry, something went wrong. Please try again or call us.");
       } finally { btn.disabled = false; btn.textContent = label; }
@@ -116,22 +117,16 @@ const CLINIC = {
   };
   $$("form[data-lead]").forEach(initForm);
 
-  // Optional pop-up enquiry form: opens once per visit after a short delay, can always be closed
+  // Optional pop-up enquiry form. It is opened by a small inline script in each page (so it appears at once);
+  // here we only wire up closing it and remember a successful submission so it stops reappearing.
   const modal = $("#enquiry");
-  if (modal && typeof modal.showModal === "function") {
-    const KEY = "relish-enquiry-shown";
-    const seen = () => { try { return sessionStorage.getItem(KEY); } catch (_) { return null; } };
-    const mark = () => { try { sessionStorage.setItem(KEY, "1"); } catch (_) { /* storage blocked: pop-up may show again */ } };
-    const open = () => {
-      if (modal.open || nav?.classList.contains("is-open")) return;
-      modal.showModal();
-      modal.focus(); // focus the dialog itself so no ring shows on the close button; Tab reaches it next
-      document.body.classList.toggle("no-scroll", true);
-      mark();
-    };
+  if (modal) {
     modal.addEventListener("close", () => document.body.classList.toggle("no-scroll", false));
     $$("[data-modal-close]", modal).forEach(b => b.addEventListener("click", () => modal.close()));
     modal.addEventListener("click", e => { if (e.target === modal) modal.close(); }); // click on the dimmed backdrop
-    if (!seen()) setTimeout(open, 8000);
+    $("form", modal).addEventListener("lead:sent", () => {
+      try { sessionStorage.setItem("relish-enquiry-sent", "1"); } catch (_) { /* storage blocked: pop-up may show again */ }
+      setTimeout(() => modal.close(), 2500);
+    });
   }
 })();
