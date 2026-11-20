@@ -164,6 +164,7 @@ a{color:var(--navy)}
 .card__body p{flex:1;margin-bottom:1.25rem;color:var(--muted);font-size:1.0625rem}
 .card__foot{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding-top:18px;border-top:1px solid rgba(var(--navy-900-rgb),.08)}
 .card__foot .btn{padding:10px 20px;min-height:48px;font-size:1rem}
+.card__foot .price{display:none}.card__foot .btn{flex:1 1 100%;justify-content:center}
 .price{display:flex;flex-direction:column;line-height:1.15}
 .price__label{font-size:.8125rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .price__value{font-size:1.5rem;font-weight:700;color:var(--navy);font-variant-numeric:tabular-nums}
