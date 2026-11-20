@@ -19,6 +19,8 @@
   --navy-950-rgb:6,26,63; --navy-900-rgb:11,47,107; --navy-700-rgb:31,75,148;
   /* Accent: teal for lines, icons and highlights; light teal for small text on dark backgrounds */
   --accent:#2FC0CD; --accent-light:#8FE3EC; --accent-rgb:47,192,205;
+  /* Rating stars */
+  --star:#DE9800; --star-rgb:222,152,0;
   /* Neutrals */
   --white:#fff; --mist:#F4F8FC; --mist-2:#EEF4FA;
   --text:#2A3547; --muted:#455063; --on-dark:#DCE7F6; --on-dark-muted:#B4C2DA;
@@ -269,8 +271,8 @@ a{color:var(--navy)}
 .reviews--few .reviews__track{justify-content:center}
 .review{flex:0 0 100%;scroll-snap-align:start;display:flex;flex-direction:column;gap:16px;background:var(--white);border:1px solid rgba(var(--navy-900-rgb),.06);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:clamp(24px,3vw,32px)}
 .review__stars{display:flex;gap:4px}
-.review__stars svg{width:22px;height:22px;fill:rgba(var(--navy-900-rgb),.14)}
-.review__stars .on{fill:var(--navy)}
+.review__stars svg{width:22px;height:22px;fill:rgba(var(--star-rgb),.22)}
+.review__stars .on{fill:var(--star)}
 .review__text{flex:1;margin:0}
 .review__text p{margin:0;font-size:1.125rem;color:var(--text)}
 .review__name{margin:0;font-weight:700;color:var(--navy)}

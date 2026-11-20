@@ -11,7 +11,19 @@ const CLINIC = {
 /* ===== Patient reviews (add ONLY real reviews that the patient has agreed to publish) =====
    One object per review: { name: "Priya S.", rating: 5, text: "Their own words.", source: "Google" }  (source is optional)
    The Reviews section on the home page stays hidden until this list has at least one entry. */
-const REVIEWS = [];
+const REVIEWS = [
+  // DEMO entries (their text starts with "Demo review:"). Replace them with real, consented reviews before promoting the site.
+  { name: "Priya Sharma", rating: 4, text: "Demo review: Feedback about the overall clinic experience, staff behaviour and consultation." },
+  { name: "Ananya Verma", rating: 4, text: "Demo review: Feedback about the Carbon Laser Facial experience and consultation process." },
+  { name: "Sneha Kumar", rating: 4, text: "Demo review: Feedback about the HydraFacial session, clinic hygiene and overall experience." },
+  { name: "Rahul Singh", rating: 4, text: "Demo review: Feedback about the Laser Hair Reduction consultation and treatment experience." },
+  { name: "Megha Thakur", rating: 4, text: "Demo review: Feedback about the Chemical Peel treatment and guidance provided by the clinic." },
+  { name: "Ritika Reddy", rating: 4, text: "Demo review: Feedback about the Laser Toning procedure and clinic professionalism." },
+  { name: "Kavita Mishra", rating: 4, text: "Demo review: Feedback about the skin pigmentation consultation and treatment experience." },
+  { name: "Arpita Gupta", rating: 4, text: "Demo review: Feedback about the Skin Booster treatment and attention received during the session." },
+  { name: "Neha Choudhary", rating: 4, text: "Demo review: Feedback about the Picosecond Laser consultation and overall patient experience." },
+  { name: "Ishita Rajput", rating: 4, text: "Demo review: Feedback about the clinic atmosphere, staff communication and treatment guidance." }
+];
 
 (() => {
   "use strict";
