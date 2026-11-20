@@ -255,6 +255,29 @@ a{color:var(--navy)}
 .js .reveal{opacity:0;transition:opacity .7s var(--ease);transition-delay:var(--d,0s)}
 .js .reveal.in{opacity:1}
 
+/* ---------- Patient reviews slider (the section stays hidden until reviews are added in js/main.js) ---------- */
+#reviews:not([hidden])+#faq{background:linear-gradient(180deg,var(--mist) 0%,var(--mist-2) 100%)}
+.reviews__viewport{overflow-x:auto;scroll-snap-type:x mandatory;scroll-padding-inline:4px;scrollbar-width:none;padding:8px 4px 28px;margin-inline:-4px}
+.reviews__viewport::-webkit-scrollbar{display:none}
+.reviews__track{display:flex;gap:24px;list-style:none;margin:0;padding:0}
+.reviews--few .reviews__track{justify-content:center}
+.review{flex:0 0 100%;scroll-snap-align:start;display:flex;flex-direction:column;gap:16px;background:var(--white);border:1px solid rgba(var(--navy-900-rgb),.06);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:clamp(24px,3vw,32px)}
+.review__stars{display:flex;gap:4px}
+.review__stars svg{width:22px;height:22px;fill:rgba(var(--navy-900-rgb),.14)}
+.review__stars .on{fill:var(--navy)}
+.review__text{flex:1;margin:0}
+.review__text p{margin:0;font-size:1.125rem;color:var(--text)}
+.review__name{margin:0;font-weight:700;color:var(--navy)}
+.review__source{font-weight:400;color:var(--muted)}
+.reviews__controls{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:4px 12px}
+.reviews__btn{flex:none;width:48px;height:48px;display:grid;place-items:center;border:1.5px solid var(--navy);border-radius:50%;background:var(--white);color:var(--navy);cursor:pointer;transition:background .2s,color .2s}
+.reviews__btn:hover{background:var(--navy);color:var(--white)}
+.reviews__btn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.reviews__dots{display:flex;flex-wrap:wrap;justify-content:center;order:3;flex-basis:100%}
+.reviews__dot{position:relative;flex:none;width:32px;height:44px;border:0;background:none;cursor:pointer}
+.reviews__dot::before{content:"";position:absolute;inset:0;margin:auto;width:10px;height:10px;border-radius:50%;background:rgba(var(--navy-900-rgb),.25);transition:background .2s,transform .2s}
+.reviews__dot[aria-current="true"]::before{background:var(--navy);transform:scale(1.3)}
+
 /* ---------- Pop-up enquiry ---------- */
 .modal{border:0;padding:0;margin:auto;width:min(480px,calc(100% - 32px));max-height:calc(100dvh - 32px);overflow:auto;border-radius:calc(var(--radius) + 4px);background:var(--white);color:var(--text);box-shadow:0 30px 80px -20px rgba(var(--navy-950-rgb),.55)}
 .modal:focus{outline:0}
@@ -283,6 +306,8 @@ a{color:var(--navy)}
 @media (min-width:520px) and (max-width:767.98px){.hero__spec-list{max-width:560px}}
 @media (min-width:768px){.hero__spec-list{grid-template-columns:1fr 1fr}}
 @media (min-width:768px){
+  .review{flex-basis:calc((100% - 24px)/2)}
+  .reviews__dots{order:0;flex-basis:auto}
   .container{padding-inline:32px}
   .footer-grid{grid-template-columns:1.6fr 1fr}
   .split{grid-template-columns:1fr 1fr;gap:72px}
@@ -302,6 +327,7 @@ a{color:var(--navy)}
   .hero__bg img{object-position:70% 35%}
 }
 @media (min-width:1024px){
+  .review{flex-basis:calc((100% - 48px)/3)}
   :root{--header-h:80px}
   .container{padding-inline:40px}
   .cards{grid-template-columns:repeat(3,1fr)}

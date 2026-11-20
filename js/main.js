@@ -8,6 +8,11 @@ const CLINIC = {
   formEndpoint: "https://script.google.com/macros/s/AKfycbwzGZIQmxytI5NG9McwcjljQ2Fp_0n3X8d9yHZSmXFLh0Ygcuj5ya1ozHOOT0tDgJHQ/exec", // Google Apps Script web app URL (ends with /exec)
 };
 
+/* ===== Patient reviews (add ONLY real reviews that the patient has agreed to publish) =====
+   One object per review: { name: "Priya S.", rating: 5, text: "Their own words.", source: "Google" }  (source is optional)
+   The Reviews section on the home page stays hidden until this list has at least one entry. */
+const REVIEWS = [];
+
 (() => {
   "use strict";
   const $ = (s, c = document) => c.querySelector(s);
@@ -116,6 +121,101 @@ const CLINIC = {
     });
   };
   $$("form[data-lead]").forEach(initForm);
+
+  // Patient reviews slider: native scroll-snap (swipe works on phones), arrows, dots, and auto-advance that can be paused
+  const reviewsSection = $("#reviews");
+  const reviews = REVIEWS.filter(r => r && r.name && r.text).map(r => ({
+    name: String(r.name), text: String(r.text), source: r.source ? String(r.source) : "",
+    rating: Math.min(5, Math.max(1, Math.round(Number(r.rating)) || 5))
+  }));
+  if (reviewsSection && reviews.length) {
+    const mount = $("[data-reviews]", reviewsSection);
+    const NS = "http://www.w3.org/2000/svg";
+    const el = (tag, cls, text) => {
+      const n = document.createElement(tag);
+      if (cls) { n.className = cls; }
+      if (text != null) { n.textContent = text; }
+      return n;
+    };
+    const svg = (paths, cls) => {
+      const s = document.createElementNS(NS, "svg"); s.setAttribute("viewBox", "0 0 24 24"); s.setAttribute("aria-hidden", "true");
+      if (cls) s.setAttribute("class", cls);
+      paths.forEach(d => { const p = document.createElementNS(NS, "path"); p.setAttribute("d", d); s.append(p); });
+      return s;
+    };
+    const btn = (cls, label, icon) => { const b = el("button", cls); b.type = "button"; b.setAttribute("aria-label", label); b.append(icon); return b; };
+    const STAR = "M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z";
+    const PAUSE = ["M8 5v14", "M16 5v14"], PLAY = ["M7 4l13 8-13 8z"];
+    const reduce = matchMedia("(prefers-reduced-motion:reduce)").matches;
+
+    mount.setAttribute("role", "region"); mount.setAttribute("aria-roledescription", "carousel"); mount.setAttribute("aria-label", "Patient reviews");
+    const viewport = el("div", "reviews__viewport"); viewport.tabIndex = 0;
+    viewport.setAttribute("aria-label", "Patient reviews. Use the left and right arrow keys to move between them.");
+    const track = el("ul", "reviews__track");
+    reviews.forEach((r, i) => {
+      const li = el("li", "review"); li.setAttribute("aria-roledescription", "slide"); li.setAttribute("aria-label", `${i + 1} of ${reviews.length}`);
+      const stars = el("div", "review__stars"); stars.setAttribute("role", "img"); stars.setAttribute("aria-label", `${r.rating} out of 5 stars`);
+      for (let s = 1; s <= 5; s++) stars.append(svg([STAR], s <= r.rating ? "on" : ""));
+      const quote = el("blockquote", "review__text"); quote.append(el("p", null, r.text));
+      const who = el("p", "review__name", r.name); if (r.source) who.append(el("span", "review__source", " · " + r.source));
+      li.append(stars, quote, who); track.append(li);
+    });
+    viewport.append(track);
+    const prev = btn("reviews__btn", "Previous reviews", svg(["M15 5l-7 7 7 7"]));
+    const next = btn("reviews__btn", "Next reviews", svg(["M9 5l7 7-7 7"]));
+    const dots = el("div", "reviews__dots");
+    const pause = btn("reviews__btn", "Pause automatic sliding", svg(PAUSE));
+    const controls = el("div", "reviews__controls"); controls.append(prev, dots, next, pause);
+    mount.append(viewport, controls);
+    reviewsSection.hidden = false;
+
+    const slides = $$(".review", track);
+    let perView = 1, pages = 1, page = 0, userPaused = false, hovering = false, onScreen = true;
+    const step = () => slides.length > 1 ? slides[1].offsetLeft - slides[0].offsetLeft : slides[0].offsetWidth;
+    const maxLeft = () => viewport.scrollWidth - viewport.clientWidth;
+    const markDots = () => $$(".reviews__dot", dots).forEach((d, i) => d.setAttribute("aria-current", String(i === page)));
+    const readPage = () => {
+      page = viewport.scrollLeft >= maxLeft() - 2 ? pages - 1 : Math.min(pages - 1, Math.round(viewport.scrollLeft / (perView * step())));
+      markDots();
+    };
+    const goTo = p => {
+      page = (p + pages) % pages;
+      viewport.scrollTo({ left: Math.min(page * perView * step(), maxLeft()), behavior: reduce ? "auto" : "smooth" });
+      markDots();
+    };
+    const measure = () => {
+      const st = step(), gap = st - slides[0].offsetWidth;
+      perView = Math.max(1, Math.round((track.clientWidth + gap) / st));
+      const count = Math.ceil(slides.length / perView);
+      if (count !== pages || !dots.children.length) {
+        pages = count; dots.textContent = "";
+        for (let i = 0; i < pages; i++) { const d = el("button", "reviews__dot"); d.type = "button"; d.setAttribute("aria-label", `Show reviews page ${i + 1} of ${pages}`); d.addEventListener("click", () => goTo(i)); dots.append(d); }
+      }
+      controls.hidden = pages <= 1; mount.classList.toggle("reviews--few", pages <= 1);
+      readPage();
+    };
+    prev.addEventListener("click", () => goTo(page - 1));
+    next.addEventListener("click", () => goTo(page + 1));
+    viewport.addEventListener("keydown", e => {
+      if (e.key === "ArrowLeft") { e.preventDefault(); goTo(page - 1); }
+      if (e.key === "ArrowRight") { e.preventDefault(); goTo(page + 1); }
+    });
+    let raf = 0; viewport.addEventListener("scroll", () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(readPage); }, { passive: true });
+    if ("ResizeObserver" in window) new ResizeObserver(measure).observe(viewport); else addEventListener("resize", measure);
+
+    // Auto-advance: off for reduced motion, paused while hovering/focused/off-screen/hidden tab or when the visitor pauses it
+    const setPlaying = () => { viewport.setAttribute("aria-live", userPaused || reduce ? "polite" : "off"); };
+    if (reduce) pause.hidden = true;
+    pause.addEventListener("click", () => {
+      userPaused = !userPaused; pause.setAttribute("aria-label", userPaused ? "Start automatic sliding" : "Pause automatic sliding");
+      pause.replaceChildren(svg(userPaused ? PLAY : PAUSE)); setPlaying();
+    });
+    mount.addEventListener("mouseenter", () => { hovering = true; }); mount.addEventListener("mouseleave", () => { hovering = false; });
+    mount.addEventListener("focusin", () => { hovering = true; }); mount.addEventListener("focusout", () => { hovering = false; });
+    if ("IntersectionObserver" in window) new IntersectionObserver(en => { onScreen = en[0].isIntersecting; }).observe(mount);
+    if (!reduce) setInterval(() => { if (pages > 1 && !userPaused && !hovering && onScreen && !document.hidden) goTo(page + 1); }, 7000);
+    setPlaying(); measure();
+  }
 
   // Optional pop-up enquiry form. It is opened by a small inline script in each page (so it appears at once);
   // here we only wire up closing it and remember a successful submission so it stops reappearing.
