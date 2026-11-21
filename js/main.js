@@ -1,10 +1,12 @@
 /* ===== Feedback pop-up: built once here and added to every page, with a button in the footer ===== */
 (() => {
-  const dlg = document.createElement("dialog");
-  if (!dlg.showModal) return;
+  if (!document.createElement("dialog").showModal) return;
+  let dlg = null; // built on the first click, so pages do not pay for it at load
   const SERVICES = ["Full Body Skin Toning", "Body Pigmentation Treatment", "Skin Brightening Treatment", "Laser Skin Rejuvenation", "Laser Toning", "Carbon Laser Facial", "Q-Switch Laser Treatment", "Picosecond Laser Treatment", "Laser Hair Reduction", "Chemical Peels", "HydraFacial", "Skin Booster", "Tattoo Removal", "Other"];
   const STAR = "M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z";
   const stars = [5, 4, 3, 2, 1].map(n => `<input type="radio" id="fb-r${n}" name="rating" value="${n}"><label for="fb-r${n}"><span class="sr-only">${n} star${n > 1 ? "s" : ""}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${STAR}"/></svg></label>`).join("");
+  const build = () => {
+  dlg = document.createElement("dialog");
   dlg.className = "modal modal--feedback"; dlg.id = "feedback-modal"; dlg.tabIndex = -1; dlg.setAttribute("aria-labelledby", "feedback-title");
   dlg.innerHTML = `<button class="modal__close" type="button" data-feedback-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
 <form class="form modal__form" id="feedback-form" data-lead data-feedback novalidate>
@@ -23,16 +25,19 @@
 <div class="form-status" role="status" aria-live="polite"></div>
 </form>`;
   document.body.append(dlg);
-
-  const open = () => {
-    const st = dlg.querySelector(".form-status"); st.className = "form-status"; st.textContent = ""; // fresh message each time
-    dlg.showModal(); document.body.classList.add("no-scroll");
-    dlg.querySelector("input[name=name]").focus();
-  };
+  if (window.relishInitForm) window.relishInitForm(dlg.querySelector("form"));
   dlg.addEventListener("close", () => { if (!document.querySelector("dialog[open]")) document.body.classList.remove("no-scroll"); });
   dlg.querySelector("form").addEventListener("lead:sent", () => setTimeout(() => dlg.close(), 2500)); // thank-you shows, then the pop-up closes
   dlg.querySelector("[data-feedback-close]").addEventListener("click", () => dlg.close());
   dlg.addEventListener("click", e => { if (e.target === dlg) dlg.close(); }); // click on the dimmed backdrop
+  };
+
+  const open = () => {
+    if (!dlg) build();
+    const st = dlg.querySelector(".form-status"); st.className = "form-status"; st.textContent = ""; // fresh message each time
+    dlg.showModal(); document.body.classList.add("no-scroll");
+    dlg.querySelector("input[name=name]").focus();
+  };
 
   const list = document.querySelector(".footer-links");
   if (list) {
@@ -41,7 +46,7 @@
     li.append(b); list.append(li);
   }
   document.addEventListener("click", e => { if (e.target.closest("[data-feedback-open]")) open(); });
-  if (location.hash === "#feedback") open();
+  if (location.hash === "#feedback") document.addEventListener("DOMContentLoaded", open);
 })();
 
 /* ===== Single edit point for clinic details (edit here) ===== */
@@ -62,7 +67,7 @@ const CLINIC = {
 const REVIEWS = [];
 if (document.getElementById("reviews") && CLINIC.feedbackEndpoint) {
   // Feedback comes from the feedback Sheet (the script skips rows marked Hide on website)
-  window.relishApproved = fetch(CLINIC.feedbackEndpoint).then(r => r.json()).then(o => Array.isArray(o.reviews) ? o.reviews : []).catch(() => []);
+  window.relishApproved = fetch(CLINIC.feedbackEndpoint + "?t=" + Date.now(), { cache: "no-store" }).then(r => r.json()).then(o => Array.isArray(o.reviews) ? o.reviews : []).catch(() => []);
 }
 (() => {
   "use strict";
@@ -179,6 +184,10 @@ if (document.getElementById("reviews") && CLINIC.feedbackEndpoint) {
         });
         if (!res.ok) throw new Error(res.status);
         if (isGoogle) { const out = await res.json(); if (!out.ok) throw new Error("script error"); }
+        if (isFeedback) {
+          const q = form.elements.name.value.trim().split(/\s+/);
+          document.dispatchEvent(new CustomEvent("feedback:sent", { detail: { name: q[0] + (q.length > 1 ? " " + q[q.length - 1][0].toUpperCase() + "." : ""), rating: Number(form.elements.rating.value), text: form.elements.message.value.trim(), source: form.elements.service.value } }));
+        }
         form.reset(); show("ok", isFeedback ? "Thank you for your feedback." : "Thank you! Your request has been sent. We will contact you soon.");
         form.dispatchEvent(new Event("lead:sent"));
       } catch (_) { // any failure (network, HTTP error, script error) gets the same visitor-facing message
@@ -187,17 +196,18 @@ if (document.getElementById("reviews") && CLINIC.feedbackEndpoint) {
     });
   };
   $$("form[data-lead]").forEach(initForm);
+  window.relishInitForm = initForm; // lets the feedback pop-up (built on first click) use the same validation and sending
 
   // Patient reviews slider: native scroll-snap (swipe works on phones), arrows, dots, and auto-advance that can be paused
   const reviewsSection = $("#reviews");
-  let reviewsShown = false;
+  let reviewsCleanup = null; // undoes the slider (timer, observers) so it can be rebuilt with a new review
   const showReviews = list => {
   const reviews = list.filter(r => r && r.name && r.text).map(r => ({
     name: String(r.name), text: String(r.text), source: r.source ? String(r.source) : "",
     rating: Math.min(5, Math.max(1, Math.round(Number(r.rating)) || 5))
   }));
-  if (reviewsSection && reviews.length && !reviewsShown) {
-    reviewsShown = true;
+  if (reviewsSection && reviews.length) {
+    if (reviewsCleanup) reviewsCleanup();
     const mount = $("[data-reviews]", reviewsSection);
     const NS = "http://www.w3.org/2000/svg";
     const el = (tag, cls, text) => {
@@ -270,7 +280,8 @@ if (document.getElementById("reviews") && CLINIC.feedbackEndpoint) {
       if (e.key === "ArrowRight") { e.preventDefault(); goTo(page + 1); }
     });
     let raf = 0; viewport.addEventListener("scroll", () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(readPage); }, { passive: true });
-    if ("ResizeObserver" in window) new ResizeObserver(measure).observe(viewport); else addEventListener("resize", measure);
+    let ro = null;
+    if ("ResizeObserver" in window) { ro = new ResizeObserver(measure); ro.observe(viewport); } else addEventListener("resize", measure);
 
     // Auto-advance: off for reduced motion, paused while hovering/focused/off-screen/hidden tab or when the visitor pauses it
     const setPlaying = () => { viewport.setAttribute("aria-live", userPaused || reduce ? "polite" : "off"); };
@@ -281,13 +292,18 @@ if (document.getElementById("reviews") && CLINIC.feedbackEndpoint) {
     });
     mount.addEventListener("mouseenter", () => { hovering = true; }); mount.addEventListener("mouseleave", () => { hovering = false; });
     mount.addEventListener("focusin", () => { hovering = true; }); mount.addEventListener("focusout", () => { hovering = false; });
-    if ("IntersectionObserver" in window) new IntersectionObserver(en => { onScreen = en[0].isIntersecting; }).observe(mount);
-    if (!reduce) setInterval(() => { if (pages > 1 && !userPaused && !hovering && onScreen && !document.hidden) goTo(page + 1); }, 7000);
+    let io = null;
+    if ("IntersectionObserver" in window) { io = new IntersectionObserver(en => { onScreen = en[0].isIntersecting; }); io.observe(mount); }
+    const timer = reduce ? 0 : setInterval(() => { if (pages > 1 && !userPaused && !hovering && onScreen && !document.hidden) goTo(page + 1); }, 7000);
     setPlaying(); measure();
+    reviewsCleanup = () => { clearInterval(timer); if (ro) ro.disconnect(); else removeEventListener("resize", measure); if (io) io.disconnect(); mount.textContent = ""; };
   }
   };
+  let liveReviews = [];
   showReviews(REVIEWS);
-  if (window.relishApproved) window.relishApproved.then(showReviews);
+  if (window.relishApproved) window.relishApproved.then(list => { liveReviews = list; showReviews(list); });
+  // A visitor who has just sent feedback sees it at the top at once, without waiting for the Sheet
+  document.addEventListener("feedback:sent", e => { liveReviews = [e.detail, ...liveReviews]; showReviews(liveReviews); });
 
   // Optional pop-up enquiry form. It is opened by a small inline script in each page (so it appears at once);
   // here we only wire up closing it and remember a successful submission so it stops reappearing.
