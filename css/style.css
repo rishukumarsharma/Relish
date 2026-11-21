@@ -257,9 +257,6 @@ dialog.modal--feedback .field select{padding-right:48px}
 dialog.modal--feedback .field textarea{min-height:92px}
 dialog.modal--feedback .btn{width:100%}
 .field-row{display:grid;gap:0 14px}
-.feedback__mine{margin-top:16px;padding:16px 18px;border:1px solid rgba(var(--navy-900-rgb),.1);border-radius:var(--radius-sm);background:var(--mist)}
-.feedback__mine h3{margin:0 0 6px;font:700 .875rem var(--font-body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
-.feedback__mine p{margin:6px 0 0;color:var(--text);overflow-wrap:anywhere}
 .site-footer .btn--outline{margin-top:10px;color:var(--white);border-color:rgba(255,255,255,.7)}
 .site-footer .btn--outline:hover{background:var(--white);color:var(--navy)}
 @media(min-width:560px){.field-row{grid-template-columns:1fr 1fr}}

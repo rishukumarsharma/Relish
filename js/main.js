@@ -9,7 +9,7 @@
   dlg.innerHTML = `<button class="modal__close" type="button" data-feedback-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
 <form class="form modal__form" id="feedback-form" data-lead data-feedback novalidate>
 <h2 id="feedback-title">Share your feedback</h2>
-<p class="modal__lead">Tell us how your visit went. Your comments go to our team.</p>
+<p class="modal__lead">Tell us how your visit went. Your feedback and first name may be shown on our website.</p>
 <input type="hidden" name="type" value="feedback">
 <div class="field-row">
 <div class="field"><label for="fb-name">Name</label><input id="fb-name" name="name" type="text" autocomplete="name" required><span class="error" role="alert"></span></div>
@@ -21,17 +21,16 @@
 <div class="hp" aria-hidden="true"><label>Leave empty<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
 <button class="btn btn--primary" type="submit">Submit Feedback</button>
 <div class="form-status" role="status" aria-live="polite"></div>
-<div class="feedback__mine" hidden></div>
 </form>`;
   document.body.append(dlg);
 
   const open = () => {
-    const mine = dlg.querySelector(".feedback__mine"), st = dlg.querySelector(".form-status");
-    if (!mine.hidden) { mine.hidden = true; mine.textContent = ""; st.className = "form-status"; st.textContent = ""; } // fresh form after a sent one
+    const st = dlg.querySelector(".form-status"); st.className = "form-status"; st.textContent = ""; // fresh message each time
     dlg.showModal(); document.body.classList.add("no-scroll");
     dlg.querySelector("input[name=name]").focus();
   };
   dlg.addEventListener("close", () => { if (!document.querySelector("dialog[open]")) document.body.classList.remove("no-scroll"); });
+  dlg.querySelector("form").addEventListener("lead:sent", () => setTimeout(() => dlg.close(), 2500)); // thank-you shows, then the pop-up closes
   dlg.querySelector("[data-feedback-close]").addEventListener("click", () => dlg.close());
   dlg.addEventListener("click", e => { if (e.target === dlg) dlg.close(); }); // click on the dimmed backdrop
 
@@ -53,26 +52,18 @@ const CLINIC = {
   email: "relish842@gmail.com",
   address: "1st Floor, No. 7 & 8, Muthanallur Cross, Sarjapur - Marathahalli Road, Dommasandra, Bengaluru, Karnataka 562125",
   formEndpoint: "https://script.google.com/macros/s/AKfycbwzGZIQmxytI5NG9McwcjljQ2Fp_0n3X8d9yHZSmXFLh0Ygcuj5ya1ozHOOT0tDgJHQ/exec", // Google Apps Script web app URL (ends with /exec)
-  feedbackEndpoint: "", // Separate Apps Script web app URL for the feedback form (its own Google Sheet). Paste it here.
+  feedbackEndpoint: "https://script.google.com/macros/s/AKfycbxFi95aBueGE9pVQIVlMxH_izrIfQpyzKj19bbMFUYQ5EYCrmuBLMJxlPrNTnAe4SkAxA/exec", // Separate Apps Script web app URL for the feedback form (its own Google Sheet). Paste it here.
 };
 
-/* ===== Patient reviews (add ONLY real reviews that the patient has agreed to publish) =====
-   One object per review: { name: "Priya S.", rating: 5, text: "Their own words.", source: "Google" }  (source is optional)
-   The Reviews section on the home page stays hidden until this list has at least one entry. */
-const REVIEWS = [
-  // DEMO entries (their text starts with "Demo review:"). Replace them with real, consented reviews before promoting the site.
-  { name: "Priya Sharma", rating: 4, text: "Demo review: Feedback about the overall clinic experience, staff behaviour and consultation." },
-  { name: "Ananya Verma", rating: 4, text: "Demo review: Feedback about the Carbon Laser Facial experience and consultation process." },
-  { name: "Sneha Kumar", rating: 4, text: "Demo review: Feedback about the HydraFacial session, clinic hygiene and overall experience." },
-  { name: "Rahul Singh", rating: 4, text: "Demo review: Feedback about the Laser Hair Reduction consultation and treatment experience." },
-  { name: "Megha Thakur", rating: 4, text: "Demo review: Feedback about the Chemical Peel treatment and guidance provided by the clinic." },
-  { name: "Ritika Reddy", rating: 4, text: "Demo review: Feedback about the Laser Toning procedure and clinic professionalism." },
-  { name: "Kavita Mishra", rating: 4, text: "Demo review: Feedback about the skin pigmentation consultation and treatment experience." },
-  { name: "Arpita Gupta", rating: 4, text: "Demo review: Feedback about the Skin Booster treatment and attention received during the session." },
-  { name: "Neha Choudhary", rating: 4, text: "Demo review: Feedback about the Picosecond Laser consultation and overall patient experience." },
-  { name: "Ishita Rajput", rating: 4, text: "Demo review: Feedback about the clinic atmosphere, staff communication and treatment guidance." }
-];
-
+/* ===== Patient reviews =====
+   Real reviews come from the feedback Sheet: every row shows here unless "Hide on website" is Yes.
+   You can also add a review by hand: { name: "Priya S.", rating: 5, text: "Their own words.", source: "Google" }.
+   The Reviews section on the home page stays hidden until there is at least one review. */
+const REVIEWS = [];
+if (document.getElementById("reviews") && CLINIC.feedbackEndpoint) {
+  // Feedback comes from the feedback Sheet (the script skips rows marked Hide on website)
+  window.relishApproved = fetch(CLINIC.feedbackEndpoint).then(r => r.json()).then(o => Array.isArray(o.reviews) ? o.reviews : []).catch(() => []);
+}
 (() => {
   "use strict";
   const $ = (s, c = document) => c.querySelector(s);
@@ -154,20 +145,6 @@ const REVIEWS = [
       if (err) err.textContent = ok ? "" : "Please choose a star rating.";
       return ok;
     };
-    // Shows the visitor's own entry under the form after a successful send (text only, never HTML)
-    const showMine = (rating, text) => {
-      const box = $(".feedback__mine", form); if (!box) return;
-      box.textContent = "";
-      const h = document.createElement("h3"); h.textContent = "What you sent";
-      const stars = document.createElement("div"); stars.className = "review__stars"; stars.setAttribute("role", "img"); stars.setAttribute("aria-label", rating + " out of 5 stars");
-      for (let i = 1; i <= 5; i++) {
-        const sv = document.createElementNS("http://www.w3.org/2000/svg", "svg"); sv.setAttribute("viewBox", "0 0 24 24"); sv.setAttribute("aria-hidden", "true");
-        if (i <= rating) sv.setAttribute("class", "on");
-        const pa = document.createElementNS("http://www.w3.org/2000/svg", "path"); pa.setAttribute("d", "M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z"); sv.append(pa); stars.append(sv);
-      }
-      const p = document.createElement("p"); p.textContent = text;
-      box.append(h, stars, p); box.hidden = false;
-    };
     const show = (type, msg) => { status.className = "form-status" + (type ? " " + type : ""); status.textContent = msg; };
     $$("input,select,textarea", form).forEach(i => i.addEventListener("blur", () => check(i)));
     form.addEventListener("input", e => {
@@ -202,7 +179,6 @@ const REVIEWS = [
         });
         if (!res.ok) throw new Error(res.status);
         if (isGoogle) { const out = await res.json(); if (!out.ok) throw new Error("script error"); }
-        if (isFeedback) showMine(Number(form.elements.rating.value), form.elements.message.value.trim());
         form.reset(); show("ok", isFeedback ? "Thank you for your feedback." : "Thank you! Your request has been sent. We will contact you soon.");
         form.dispatchEvent(new Event("lead:sent"));
       } catch (_) { // any failure (network, HTTP error, script error) gets the same visitor-facing message
@@ -214,11 +190,14 @@ const REVIEWS = [
 
   // Patient reviews slider: native scroll-snap (swipe works on phones), arrows, dots, and auto-advance that can be paused
   const reviewsSection = $("#reviews");
-  const reviews = REVIEWS.filter(r => r && r.name && r.text).map(r => ({
+  let reviewsShown = false;
+  const showReviews = list => {
+  const reviews = list.filter(r => r && r.name && r.text).map(r => ({
     name: String(r.name), text: String(r.text), source: r.source ? String(r.source) : "",
     rating: Math.min(5, Math.max(1, Math.round(Number(r.rating)) || 5))
   }));
-  if (reviewsSection && reviews.length) {
+  if (reviewsSection && reviews.length && !reviewsShown) {
+    reviewsShown = true;
     const mount = $("[data-reviews]", reviewsSection);
     const NS = "http://www.w3.org/2000/svg";
     const el = (tag, cls, text) => {
@@ -306,6 +285,9 @@ const REVIEWS = [
     if (!reduce) setInterval(() => { if (pages > 1 && !userPaused && !hovering && onScreen && !document.hidden) goTo(page + 1); }, 7000);
     setPlaying(); measure();
   }
+  };
+  showReviews(REVIEWS);
+  if (window.relishApproved) window.relishApproved.then(showReviews);
 
   // Optional pop-up enquiry form. It is opened by a small inline script in each page (so it appears at once);
   // here we only wire up closing it and remember a successful submission so it stops reappearing.
