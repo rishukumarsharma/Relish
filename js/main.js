@@ -1,3 +1,50 @@
+/* ===== Feedback pop-up: built once here and added to every page, with a button in the footer ===== */
+(() => {
+  const dlg = document.createElement("dialog");
+  if (!dlg.showModal) return;
+  const SERVICES = ["Full Body Skin Toning", "Body Pigmentation Treatment", "Skin Brightening Treatment", "Laser Skin Rejuvenation", "Laser Toning", "Carbon Laser Facial", "Q-Switch Laser Treatment", "Picosecond Laser Treatment", "Laser Hair Reduction", "Chemical Peels", "HydraFacial", "Skin Booster", "Tattoo Removal", "Other"];
+  const STAR = "M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z";
+  const stars = [5, 4, 3, 2, 1].map(n => `<input type="radio" id="fb-r${n}" name="rating" value="${n}"><label for="fb-r${n}"><span class="sr-only">${n} star${n > 1 ? "s" : ""}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${STAR}"/></svg></label>`).join("");
+  dlg.className = "modal modal--feedback"; dlg.id = "feedback-modal"; dlg.tabIndex = -1; dlg.setAttribute("aria-labelledby", "feedback-title");
+  dlg.innerHTML = `<button class="modal__close" type="button" data-feedback-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+<form class="form modal__form" id="feedback-form" data-lead data-feedback novalidate>
+<h2 id="feedback-title">Share your feedback</h2>
+<p class="modal__lead">Tell us how your visit went. Your comments go to our team.</p>
+<input type="hidden" name="type" value="feedback">
+<div class="field-row">
+<div class="field"><label for="fb-name">Name</label><input id="fb-name" name="name" type="text" autocomplete="name" required><span class="error" role="alert"></span></div>
+<div class="field"><label for="fb-email">Email (optional)</label><input id="fb-email" name="email" type="email" autocomplete="email"><span class="error" role="alert"></span></div>
+</div>
+<div class="field"><label for="fb-service">Service (optional)</label><select id="fb-service" name="service"><option value="">Select a service</option>${SERVICES.map(s => `<option>${s}</option>`).join("")}</select></div>
+<fieldset class="field rating-field"><legend>Your rating</legend><div class="stars">${stars}</div><span class="error" role="alert"></span></fieldset>
+<div class="field"><label for="fb-message">Your feedback</label><textarea id="fb-message" name="message" required></textarea><span class="error" role="alert"></span></div>
+<div class="hp" aria-hidden="true"><label>Leave empty<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+<button class="btn btn--primary" type="submit">Submit Feedback</button>
+<div class="form-status" role="status" aria-live="polite"></div>
+<div class="feedback__mine" hidden></div>
+</form>`;
+  document.body.append(dlg);
+
+  const open = () => {
+    const mine = dlg.querySelector(".feedback__mine"), st = dlg.querySelector(".form-status");
+    if (!mine.hidden) { mine.hidden = true; mine.textContent = ""; st.className = "form-status"; st.textContent = ""; } // fresh form after a sent one
+    dlg.showModal(); document.body.classList.add("no-scroll");
+    dlg.querySelector("input[name=name]").focus();
+  };
+  dlg.addEventListener("close", () => { if (!document.querySelector("dialog[open]")) document.body.classList.remove("no-scroll"); });
+  dlg.querySelector("[data-feedback-close]").addEventListener("click", () => dlg.close());
+  dlg.addEventListener("click", e => { if (e.target === dlg) dlg.close(); }); // click on the dimmed backdrop
+
+  const list = document.querySelector(".footer-links");
+  if (list) {
+    const li = document.createElement("li"), b = document.createElement("button");
+    b.type = "button"; b.className = "btn btn--outline"; b.textContent = "Submit Feedback"; b.setAttribute("data-feedback-open", "");
+    li.append(b); list.append(li);
+  }
+  document.addEventListener("click", e => { if (e.target.closest("[data-feedback-open]")) open(); });
+  if (location.hash === "#feedback") open();
+})();
+
 /* ===== Single edit point for clinic details (edit here) ===== */
 const CLINIC = {
   name: "Relish Skin & Laser Clinic",
@@ -6,6 +53,7 @@ const CLINIC = {
   email: "relish842@gmail.com",
   address: "1st Floor, No. 7 & 8, Muthanallur Cross, Sarjapur - Marathahalli Road, Dommasandra, Bengaluru, Karnataka 562125",
   formEndpoint: "https://script.google.com/macros/s/AKfycbwzGZIQmxytI5NG9McwcjljQ2Fp_0n3X8d9yHZSmXFLh0Ygcuj5ya1ozHOOT0tDgJHQ/exec", // Google Apps Script web app URL (ends with /exec)
+  feedbackEndpoint: "", // Separate Apps Script web app URL for the feedback form (its own Google Sheet). Paste it here.
 };
 
 /* ===== Patient reviews (add ONLY real reviews that the patient has agreed to publish) =====
@@ -79,6 +127,7 @@ const REVIEWS = [
   const rules = {
     name: v => v.trim().length >= 2 || "Please enter your name.",
     phone: v => (/^\+?[\d\s\-()]{10,16}$/.test(v.trim()) && v.replace(/\D/g, "").length >= 10) || "Please enter a valid phone number (at least 10 digits).",
+    message: v => v.trim().length >= 10 || "Please write at least 10 characters.",
     email: v => !v.trim() || /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)*\.[^\s@.]{2,}$/.test(v.trim()) || "Please enter a valid email address."
   };
 
@@ -97,9 +146,34 @@ const REVIEWS = [
       }
       return ok;
     };
+    const isFeedback = form.hasAttribute("data-feedback");
+    const checkRating = () => {
+      const field = form.elements.rating[0].closest(".field"), err = $(".error", field);
+      const ok = !!form.elements.rating.value;
+      field.classList.toggle("invalid", !ok);
+      if (err) err.textContent = ok ? "" : "Please choose a star rating.";
+      return ok;
+    };
+    // Shows the visitor's own entry under the form after a successful send (text only, never HTML)
+    const showMine = (rating, text) => {
+      const box = $(".feedback__mine", form); if (!box) return;
+      box.textContent = "";
+      const h = document.createElement("h3"); h.textContent = "What you sent";
+      const stars = document.createElement("div"); stars.className = "review__stars"; stars.setAttribute("role", "img"); stars.setAttribute("aria-label", rating + " out of 5 stars");
+      for (let i = 1; i <= 5; i++) {
+        const sv = document.createElementNS("http://www.w3.org/2000/svg", "svg"); sv.setAttribute("viewBox", "0 0 24 24"); sv.setAttribute("aria-hidden", "true");
+        if (i <= rating) sv.setAttribute("class", "on");
+        const pa = document.createElementNS("http://www.w3.org/2000/svg", "path"); pa.setAttribute("d", "M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z"); sv.append(pa); stars.append(sv);
+      }
+      const p = document.createElement("p"); p.textContent = text;
+      box.append(h, stars, p); box.hidden = false;
+    };
     const show = (type, msg) => { status.className = "form-status" + (type ? " " + type : ""); status.textContent = msg; };
     $$("input,select,textarea", form).forEach(i => i.addEventListener("blur", () => check(i)));
-    form.addEventListener("input", e => { if (e.target.closest(".field.invalid")) check(e.target); });
+    form.addEventListener("input", e => {
+      if (e.target.name === "rating") { if (e.target.closest(".field.invalid")) checkRating(); return; }
+      if (e.target.closest(".field.invalid")) check(e.target);
+    });
 
     // Preselect service from ?service=
     const wanted = new URLSearchParams(location.search).get("service");
@@ -108,24 +182,28 @@ const REVIEWS = [
     form.addEventListener("submit", async e => {
       e.preventDefault();
       if (btn.disabled) return;
-      const results = ["name", "phone", "email"].filter(n => form.elements[n]).map(n => check(form.elements[n]));
-      if (results.includes(false)) { form.querySelector(".invalid input").focus(); show("err", "Please fix the highlighted fields."); return; }
+      const required = isFeedback ? ["name", "email", "message"] : ["name", "phone", "email"];
+      const results = required.filter(n => form.elements[n]).map(n => check(form.elements[n]));
+      if (isFeedback) results.push(checkRating());
+      if (results.includes(false)) { form.querySelector(".invalid input, .invalid textarea").focus(); show("err", "Please fix the highlighted fields."); return; }
       if (form.elements.website.value) { show("ok", "Thank you! We will contact you soon."); form.reset(); return; } // honeypot: bots see success
-      if (!CLINIC.formEndpoint) { show("err", "Online booking is not available right now. Please call or WhatsApp us."); return; }
+      const endpoint = isFeedback ? CLINIC.feedbackEndpoint : CLINIC.formEndpoint;
+      if (!endpoint) { show("err", isFeedback ? "Feedback cannot be sent right now. Please try again later." : "Online booking is not available right now. Please call or WhatsApp us."); return; }
       const label = btn.textContent;
       btn.disabled = true; btn.textContent = "Sending…"; show("", "");
       try {
         const data = new FormData(form); data.delete("website");
-        const isGoogle = CLINIC.formEndpoint.includes("script.google.com");
+        const isGoogle = endpoint.includes("script.google.com");
         // Google Apps Script needs a "simple" request (no custom headers) or the browser blocks it
-        const res = await fetch(CLINIC.formEndpoint, {
+        const res = await fetch(endpoint, {
           method: "POST",
           body: new URLSearchParams(data),
           headers: isGoogle ? undefined : { Accept: "application/json" }
         });
         if (!res.ok) throw new Error(res.status);
         if (isGoogle) { const out = await res.json(); if (!out.ok) throw new Error("script error"); }
-        form.reset(); show("ok", "Thank you! Your request has been sent. We will contact you soon.");
+        if (isFeedback) showMine(Number(form.elements.rating.value), form.elements.message.value.trim());
+        form.reset(); show("ok", isFeedback ? "Thank you for your feedback." : "Thank you! Your request has been sent. We will contact you soon.");
         form.dispatchEvent(new Event("lead:sent"));
       } catch (_) { // any failure (network, HTTP error, script error) gets the same visitor-facing message
         show("err", "Sorry, something went wrong. Please try again or call us.");
